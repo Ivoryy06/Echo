@@ -589,7 +589,7 @@ export default function App() {
           <textarea value={body} onChange={e => setBody(e.target.value)}
             placeholder="What's on your mind today…"
             rows={8}
-            style={{ width:"100%", padding:"14px 16px", fontSize:15, lineHeight:1.9, border:"1px solid var(--border)", borderRadius:10, fontFamily:"Georgia, serif", color:"var(--text)", background:"var(--bg)", resize:"vertical", boxSizing:"border-box" }}
+            style={{ width:"100%", padding:"14px 16px", fontSize:15, lineHeight:1.9, border:"1px solid var(--border)", borderRadius:10, fontFamily:"'Lora', Georgia, serif", color:"var(--text)", background:"var(--bg)", resize:"vertical", boxSizing:"border-box" }}
           />
           <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginTop:8 }}>
             <span style={{ fontSize:12, color:"var(--muted)" }}>{body.trim().split(/\s+/).filter(Boolean).length} words</span>
@@ -610,7 +610,7 @@ export default function App() {
                 <span style={{ fontSize:12, color:"var(--muted)" }}>Detected: <strong>{lastResult.emotion}</strong></span>
               </div>
               {lastResult.mirror && (
-                <div style={{ padding:"14px 18px", background:"var(--accent-light)", border:"1px solid var(--accent-mid)", borderRadius:10, fontSize:14, lineHeight:1.9, color:"var(--text)", fontStyle:"italic", whiteSpace:"pre-wrap" }}>
+                <div style={{ padding:"14px 18px", background:"var(--accent-light)", border:"1px solid var(--accent-mid)", borderRadius:10, fontSize:14, lineHeight:1.9, color:"var(--text)", fontStyle:"italic", whiteSpace:"pre-wrap", fontFamily:"'Lora', Georgia, serif" }}>
                   {lastResult.mirror}
                 </div>
               )}
