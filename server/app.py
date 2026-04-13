@@ -306,3 +306,32 @@ if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5050))
     print(f"  Echo API → http://localhost:{port}")
     app.run(host="0.0.0.0", port=port, debug=True)
+
+from datetime import datetime, timedelta
+
+@app.route('/api/streaks', methods=['GET'])
+def get_streak():
+    conn = get_db()
+    rows = conn.execute(
+        "SELECT DATE(created_at, 'unixepoch') as day FROM entries GROUP BY day ORDER BY day DESC"
+   ).fetchall()
+    conn.close()
+
+    days = [row['day'] for row in rows]
+    if not days:
+        return jsonify({'current': 0, 'longest': 0, 'total_days': 0})
+    
+    current = 1
+    today = datetime.utcnow().date()
+    latest = datetime.strptime(days[0], '%Y-%m-%d').date()
+
+    if (today - latest).days > 1:
+        current = 0
+    else:
+        for i in range(len(days) - 1):
+            a = datetime.strptime(days[i], '%Y-%m-%d').date()
+            b = datetime.strptime(days[i+1], '%Y-%m-%d').date()
+            if (a - b).days == 1:
+                current += 1
+            else:
+                break
