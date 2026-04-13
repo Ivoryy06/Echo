@@ -1,0 +1,46 @@
+:root {
+  --bg:           #fafaf8;
+  --surface:      #ffffff;
+  --border:       #e8e6e0;
+  --text:         #2c2c2a;
+  --muted:        #888784;
+  --accent:       #7c6af7;
+  --accent-mid:   #c4bdf9;
+  --accent-light: #f0eeff;
+  --green:        #2d8a4e;
+  --green-bg:     #e8f5ee;
+  --red:          #c0392b;
+  --red-bg:       #fdecea;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg:           #1a1a18;
+    --surface:      #242422;
+    --border:       #333330;
+    --text:         #e8e6e0;
+    --muted:        #666460;
+    --accent:       #9d8ff9;
+    --accent-mid:   #4a3fa0;
+    --accent-light: #2a2550;
+    --green:        #4caf72;
+    --green-bg:     #1a2e22;
+    --red:          #e57373;
+    --red-bg:       #2e1a1a;
+  }
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+textarea, input, button { font-family: inherit; }
+
+textarea:focus, input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+@keyframes spin { to { transform: rotate(360deg); } }
