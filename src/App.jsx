@@ -1,5 +1,5 @@
 // Echo — reflective journaling app
-// Dual mode: local (Flask + SQLite) or web (Gemini direct + localStorage/IndexedDB)
+// Dual mode: local (Flask + SQLite) or web (Groq direct + localStorage/IndexedDB)
 // Offline-first: caches entries locally, syncs to backend when reachable
 
 import { useState, useEffect, useCallback, useRef } from "react";
@@ -8,7 +8,8 @@ import { useState, useEffect, useCallback, useRef } from "react";
 
 const API_BASE     = import.meta.env.VITE_API_BASE ?? "";
 const IS_WEB_MODE  = !API_BASE || import.meta.env.VITE_WEB_MODE === "true";
-const GEMINI_MODEL = "gemini-2.0-flash";
+const GROQ_MODEL  = "llama3-8b-8192";
+const GROQ_BASE   = "https://api.groq.com/openai/v1";
 const SUMMARY_EVERY = 15;
 
 const EMOTIONS = ["joy","sadness","anger","fear","disgust","surprise","anxiety","love","grief","hope","shame","pride","neutral"];
@@ -67,18 +68,17 @@ async function idbClear() {
   });
 }
 
-// ── Gemini (web mode) ─────────────────────────────────────────────────────────
+// ── Groq (web mode) ───────────────────────────────────────────────────────────
 
-async function callGemini(apiKey, prompt) {
-  const url  = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
-  const resp = await fetch(url, {
+async function callGroq(apiKey, prompt) {
+  const resp = await fetch(`${GROQ_BASE}/chat/completions`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
+    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
+    body: JSON.stringify({ model: GROQ_MODEL, messages: [{ role: "user", content: prompt }], max_tokens: 1024 }),
   });
-  if (!resp.ok) throw new Error(`Gemini ${resp.status}`);
+  if (!resp.ok) throw new Error(`Groq ${resp.status}`);
   const data = await resp.json();
-  return data.candidates[0].content.parts[0].text.trim();
+  return data.choices[0].message.content.trim();
 }
 
 const CRISIS_SIGNALS = [
@@ -399,7 +399,7 @@ export default function App() {
   const [summaries,  setSummaries]  = useState(() => lsGet("echo_summaries", []));
   const [loading,    setLoading]    = useState(false);
   const [toast,      setToast]      = useState(null);
-  const [apiKey,     setApiKey]     = useState(() => localStorage.getItem("echo_gemini_key") || "");
+  const [apiKey,     setApiKey]     = useState(() => localStorage.getItem("echo_groq_key") || "");
   const [showKey,    setShowKey]    = useState(false);
   const [isOnline,   setIsOnline]   = useState(navigator.onLine);
   const [backendOk,  setBackendOk]  = useState(null);
@@ -489,11 +489,11 @@ export default function App() {
       } else if (isOnline && apiKey) {
         // ── web mode: call Gemini directly ──
         const [emotion, mirror] = await Promise.all([
-          callGemini(apiKey, tagPrompt(body.trim())).then(r => {
+          callGroq(apiKey, tagPrompt(body.trim())).then(r => {
             const e = r.toLowerCase().trim();
             return EMOTIONS.includes(e) ? e : "neutral";
           }),
-          callGemini(apiKey, mirrorPrompt(body.trim(), mode)),
+          callGroq(apiKey, mirrorPrompt(body.trim(), mode)),
         ]);
         const entry = { id: Date.now(), created_at: Date.now() / 1000, body: body.trim(), emotion, mirror_mode: mode, mirror, tags: "[]" };
         const updated = [entry, ...entries];
@@ -504,7 +504,7 @@ export default function App() {
         // periodic summary in web mode
         if (updated.length % SUMMARY_EVERY === 0) {
           const slice = updated.slice(0, SUMMARY_EVERY);
-          const text  = await callGemini(apiKey, summaryPrompt(slice));
+          const text  = await callGroq(apiKey, summaryPrompt(slice));
           const s     = { id: Date.now(), created_at: Date.now() / 1000, entry_range: `${updated.length - SUMMARY_EVERY + 1}–${updated.length}`, content: text };
           const updatedS = [s, ...summaries];
           setSummaries(updatedS);
@@ -576,9 +576,9 @@ export default function App() {
       {/* API key input (web mode) */}
       {webMode && showKey && (
         <div style={{ marginBottom:"1.5rem", padding:"12px 16px", background:"var(--surface)", border:"1px solid var(--border)", borderRadius:10 }}>
-          <label style={{ fontSize:12, color:"var(--muted)", display:"block", marginBottom:6 }}>Gemini API Key (stored in browser only)</label>
+          <label style={{ fontSize:12, color:"var(--muted)", display:"block", marginBottom:6 }}>Groq API Key (stored in browser only)</label>
           <input type="password" value={apiKey}
-            onChange={e => { setApiKey(e.target.value); localStorage.setItem("echo_gemini_key", e.target.value); }}
+            onChange={e => { setApiKey(e.target.value); localStorage.setItem("echo_groq_key", e.target.value); }}
             placeholder="AIza..."
             style={{ width:"100%", padding:"8px 10px", fontSize:13, border:"1px solid var(--border)", borderRadius:6, fontFamily:"monospace", background:"var(--bg)", color:"var(--text)", boxSizing:"border-box" }}
           />

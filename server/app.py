@@ -1,7 +1,7 @@
 """
 Echo — Flask backend
-Handles: entry storage, Gemini mirroring, emotional tagging, theme summaries.
-Gemini is called server-side using GEMINI_API_KEY from .env.
+Handles: entry storage, Groq mirroring, emotional tagging, theme summaries.
+Groq is called server-side using GROQ_API_KEY from .env.
 """
 
 import json, os, sqlite3, time
@@ -18,8 +18,9 @@ CORS(app)
 ROOT         = Path(__file__).parent
 DB_PATH      = ROOT / "echo.db"
 SCHEMA       = ROOT / "schema.sql"
-GEMINI_KEY   = os.environ.get("GEMINI_API_KEY", "")
-GEMINI_MODEL = "gemini-2.0-flash"
+GROQ_KEY   = os.environ.get("GROQ_API_KEY", "")
+GROQ_MODEL = "llama3-8b-8192"
+GROQ_BASE  = "https://api.groq.com/openai/v1"
 SUMMARY_EVERY = int(os.environ.get("SUMMARY_EVERY", "15"))
 
 EMOTIONS = ["joy","sadness","anger","fear","disgust","surprise","anxiety","love","grief","hope","shame","pride","neutral"]
@@ -35,18 +36,25 @@ def init_db():
     with get_db() as conn:
         conn.executescript(SCHEMA.read_text())
 
-# ── Gemini ────────────────────────────────────────────────────────────────────
+# ── Groq ─────────────────────────────────────────────────────────────────────
 
-def gemini(prompt: str) -> str:
-    if not GEMINI_KEY:
+def groq(prompt: str) -> str:
+    if not GROQ_KEY:
         return ""
     import urllib.request, urllib.error
-    url  = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent?key={GEMINI_KEY}"
-    body = json.dumps({"contents": [{"parts": [{"text": prompt}]}]}).encode()
-    req  = urllib.request.Request(url, data=body, headers={"Content-Type": "application/json"}, method="POST")
+    body = json.dumps({
+        "model": GROQ_MODEL,
+        "messages": [{"role": "user", "content": prompt}],
+        "max_tokens": 1024,
+    }).encode()
+    req = urllib.request.Request(
+        f"{GROQ_BASE}/chat/completions", data=body,
+        headers={"Content-Type": "application/json", "Authorization": f"Bearer {GROQ_KEY}"},
+        method="POST",
+    )
     try:
         with urllib.request.urlopen(req, timeout=20) as r:
-            return json.loads(r.read())["candidates"][0]["content"]["parts"][0]["text"].strip()
+            return json.loads(r.read())["choices"][0]["message"]["content"].strip()
     except Exception:
         return ""
 
@@ -206,10 +214,10 @@ Entries:
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 def process_entry(body, mode, ts=None):
-    emotion = gemini(tag_prompt(body)).lower().strip()
+    emotion = groq(tag_prompt(body)).lower().strip()
     if emotion not in EMOTIONS:
         emotion = "neutral"
-    mirror = gemini(mirror_prompt(body, mode))
+    mirror = groq(mirror_prompt(body, mode))
     now    = ts or time.time()
     return emotion, mirror, now
 
@@ -219,7 +227,7 @@ def maybe_summary(conn, count):
     rows = conn.execute(
         f"SELECT body FROM entries ORDER BY created_at DESC LIMIT {SUMMARY_EVERY}"
     ).fetchall()
-    text = gemini(summary_prompt([dict(r) for r in reversed(rows)]))
+    text = groq(summary_prompt([dict(r) for r in reversed(rows)]))
     if not text:
         return None
     rng = f"{count - SUMMARY_EVERY + 1}–{count}"
@@ -231,7 +239,7 @@ def maybe_summary(conn, count):
 
 @app.route("/api/health")
 def health():
-    return jsonify({"ok": True, "gemini": bool(GEMINI_KEY), "summary_every": SUMMARY_EVERY})
+    return jsonify({"ok": True, "gemini": bool(GROQ_KEY), "summary_every": SUMMARY_EVERY})
 
 @app.route("/api/entries", methods=["GET"])
 def list_entries():
@@ -274,6 +282,40 @@ def list_summaries():
     with get_db() as conn:
         rows = conn.execute("SELECT * FROM summaries ORDER BY created_at DESC").fetchall()
     return jsonify([dict(r) for r in rows])
+
+@app.route("/api/streaks", methods=["GET"])
+def get_streak():
+    from datetime import datetime
+    conn = get_db()
+    rows = conn.execute(
+        "SELECT DATE(created_at, 'unixepoch') as day FROM entries GROUP BY day ORDER BY day DESC"
+    ).fetchall()
+    conn.close()
+
+    days = [row["day"] for row in rows]
+    if not days:
+        return jsonify({"current": 0, "longest": 0, "total_days": 0})
+
+    today  = datetime.utcnow().date()
+    latest = datetime.strptime(days[0], "%Y-%m-%d").date()
+
+    current = 0 if (today - latest).days > 1 else 1
+    longest = current
+    run     = current
+
+    for i in range(len(days) - 1):
+        a = datetime.strptime(days[i],   "%Y-%m-%d").date()
+        b = datetime.strptime(days[i+1], "%Y-%m-%d").date()
+        if (a - b).days == 1:
+            run += 1
+            if i < (1 if current else 0):  # still in current streak
+                current = run
+            longest = max(longest, run)
+        else:
+            run = 1
+
+    return jsonify({"current": current, "longest": longest, "total_days": len(days)})
+
 
 @app.route("/api/mood-timeline", methods=["GET"])
 def mood_timeline():
