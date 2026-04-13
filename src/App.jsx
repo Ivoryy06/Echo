@@ -9,7 +9,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 const API_BASE     = import.meta.env.VITE_API_BASE ?? "";
 const IS_WEB_MODE  = !API_BASE || import.meta.env.VITE_WEB_MODE === "true";
 const GEMINI_MODEL = "gemini-1.5-flash";
-const SUMMARY_EVERY = 5;
+const SUMMARY_EVERY = 10;
 
 const EMOTIONS = ["joy","sadness","anger","fear","disgust","surprise","anxiety","love","grief","hope","shame","pride","neutral"];
 
@@ -81,22 +81,88 @@ async function callGemini(apiKey, prompt) {
   return data.candidates[0].content.parts[0].text.trim();
 }
 
+function toneNote(body) {
+  const words    = body.split(/\s+/);
+  const avgLen   = words.reduce((s, w) => s + w.length, 0) / Math.max(words.length, 1);
+  const sents    = body.split(/[.!?]+/).filter(s => s.trim());
+  const avgSent  = words.length / Math.max(sents.length, 1);
+  const informal = /\bi'm\b|\bi've\b|\bcan't\b|\bdon't\b|\bgonna\b|\bkinda\b/i.test(body);
+  const hasQ     = body.includes("?");
+  if (avgSent < 8 && informal)
+    return "The writer uses short, casual sentences. Match that rhythm — keep your response brief and conversational, not formal.";
+  if (avgLen > 6 && avgSent > 20)
+    return "The writer uses long, considered sentences with rich vocabulary. Match that register — write with care and some complexity.";
+  if (hasQ)
+    return "The writer is already questioning themselves. Honour that uncertainty — don't resolve it, sit with it.";
+  return "Match the writer's natural voice — don't be more formal or more casual than they are.";
+}
+
+function mirrorPrompt(body, mode) {
+  const tone = toneNote(body);
+  if (mode === "rewrite") return `You are a compassionate journaling companion. Your task is to gently reflect this journal entry back to the writer in second person — as if a trusted friend who truly listened is now speaking.
+
+Tone guidance: ${tone}
+
+Rules:
+- Preserve every emotional truth, even the painful ones. Do not minimise or fix.
+- Soften harsh self-criticism without erasing it — transform "I'm a failure" into "you've been carrying a heavy sense of not being enough."
+- Do not add advice, silver linings, or conclusions the writer didn't reach themselves.
+- Write in flowing prose, same approximate length as the original.
+- Begin mid-thought, not with "You wrote…" or "It sounds like…"
+
+Journal entry:
+${body}`;
+
+  if (mode === "question") return `You are a gentle journaling companion. Read this entry carefully, then offer 2–3 open questions that invite the writer to go one layer deeper.
+
+Tone guidance: ${tone}
+
+Rules:
+- Ask only — never interpret, advise, or summarise.
+- Each question should open a door, not close one. Avoid yes/no questions.
+- Questions should feel like they come from someone who read every word, not a generic prompt.
+- Space them on separate lines. No preamble, no closing remark.
+- If the entry is already asking questions, ask questions about those questions.
+
+Journal entry:
+${body}`;
+
+  if (mode === "continuation") return `You are a ghostwriter who has just read this journal entry. Continue it in the writer's exact voice — same sentence rhythm, same vocabulary register, same emotional temperature.
+
+Tone guidance: ${tone}
+
+Rules:
+- Write 3–5 sentences. No more.
+- Do not resolve anything the writer left unresolved. Do not introduce new topics.
+- Do not begin with "And" or repeat the last sentence.
+- The continuation should feel like the writer kept going, not like someone else took over.
+- If the entry ends mid-thought, continue that thought.
+
+Journal entry:
+${body}`;
+
+  return mirrorPrompt(body, "rewrite");
+}
+
 function tagPrompt(body) {
   return `Identify the single dominant emotion in this journal entry. Choose exactly one from: ${EMOTIONS.join(", ")}. Reply with only the emotion word.\n\n${body}`;
 }
 
-function mirrorPrompt(body, mode) {
-  const p = {
-    rewrite:      `Gently rewrite this journal entry in second person, as if a compassionate friend is reflecting it back. Keep the emotional truth but soften harsh self-judgment.\n\n${body}`,
-    question:     `Read this journal entry and respond with 2–3 gentle open-ended questions that invite deeper reflection. Don't interpret or advise — only ask.\n\n${body}`,
-    continuation: `Continue this journal entry in the same voice and emotional register, as if the writer kept going. Write 2–4 sentences.\n\n${body}`,
-  };
-  return p[mode] ?? p.rewrite;
-}
-
 function summaryPrompt(entries) {
   const block = entries.map((e, i) => `[${i+1}] ${e.body}`).join("\n\n---\n\n");
-  return `You are a thoughtful journaling companion. Read these journal entries and write a warm 2–3 paragraph summary identifying recurring themes, emotional patterns, and shifts in perspective. Speak directly to the writer in second person. Be gentle, not clinical.\n\n${block}`;
+  return `You are a thoughtful journaling companion who has been reading someone's private journal over time.
+
+Read these ${entries.length} entries and write a warm, personal summary (2–3 paragraphs) that:
+- Names the recurring themes you noticed, without labelling them clinically
+- Reflects any emotional shifts or patterns across the entries
+- Notices what the writer keeps returning to, even indirectly
+- Speaks directly to the writer in second person, as a trusted witness — not a therapist
+
+Do not list bullet points. Do not give advice. Do not be cheerful if the entries aren't.
+Write as if you genuinely know this person.
+
+Entries:
+${block}`;
 }
 
 // ── localStorage helpers ──────────────────────────────────────────────────────
@@ -129,28 +195,88 @@ const Toast = ({ msg, onDone }) => {
 // ── Mood Timeline ─────────────────────────────────────────────────────────────
 
 function MoodTimeline({ entries }) {
-  if (!entries.length) return null;
-  const sorted = [...entries].sort((a,b) => a.created_at - b.created_at);
+  if (!entries.length) return (
+    <p style={{ color:"var(--muted)", fontSize:14 }}>No entries yet.</p>
+  );
+
+  const sorted = [...entries].sort((a, b) => a.created_at - b.created_at);
+
+  // Group by ISO week (Mon–Sun)
+  function weekKey(ts) {
+    const d = new Date(ts * 1000);
+    const day = d.getDay() || 7;
+    const mon = new Date(d); mon.setDate(d.getDate() - day + 1);
+    return mon.toISOString().slice(0, 10);
+  }
+
+  const weeks = {};
+  for (const e of sorted) {
+    const wk = weekKey(e.created_at);
+    if (!weeks[wk]) weeks[wk] = {};
+    weeks[wk][e.emotion] = (weeks[wk][e.emotion] || 0) + 1;
+  }
+
+  const weekKeys   = Object.keys(weeks).sort();
+  const maxCount   = Math.max(...weekKeys.flatMap(wk => Object.values(weeks[wk])));
+  const usedEmotions = [...new Set(sorted.map(e => e.emotion))];
+
+  // Emotion frequency totals for the legend
+  const totals = {};
+  for (const e of sorted) totals[e.emotion] = (totals[e.emotion] || 0) + 1;
+  const topEmotions = Object.entries(totals).sort((a,b) => b[1]-a[1]).map(([em]) => em);
+
   return (
-    <div style={{ marginTop:"1.5rem" }}>
-      <div style={{ fontSize:11, textTransform:"uppercase", letterSpacing:"0.08em", color:"var(--muted)", marginBottom:8 }}>Mood Timeline</div>
-      <div style={{ display:"flex", gap:4, flexWrap:"wrap", alignItems:"center" }}>
-        {sorted.map((e, i) => (
-          <div key={i} style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:3 }}>
-            <EmotionDot emotion={e.emotion} size={12}/>
-            <span style={{ fontSize:9, color:"var(--muted)", writingMode:"vertical-rl", transform:"rotate(180deg)", maxHeight:40, overflow:"hidden" }}>
-              {new Date(e.created_at * 1000).toLocaleDateString(undefined, { month:"short", day:"numeric" })}
-            </span>
-          </div>
-        ))}
+    <div>
+      <div style={{ fontSize:11, textTransform:"uppercase", letterSpacing:"0.08em", color:"var(--muted)", marginBottom:16 }}>
+        Mood Timeline · {sorted.length} {sorted.length === 1 ? "entry" : "entries"}
       </div>
-      <div style={{ display:"flex", flexWrap:"wrap", gap:"6px 12px", marginTop:10 }}>
-        {EMOTIONS.filter(em => entries.some(e => e.emotion === em)).map(em => (
-          <span key={em} style={{ display:"flex", alignItems:"center", gap:4, fontSize:11, color:"var(--muted)" }}>
-            <EmotionDot emotion={em} size={8}/>{em}
+
+      {/* Stacked bar chart by week */}
+      <div style={{ overflowX:"auto" }}>
+        <div style={{ display:"flex", alignItems:"flex-end", gap:6, minWidth: weekKeys.length * 44, paddingBottom:4 }}>
+          {weekKeys.map(wk => {
+            const week = weeks[wk];
+            const total = Object.values(week).reduce((s,n) => s+n, 0);
+            const barH  = 80;
+            return (
+              <div key={wk} style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:4, flex:"0 0 38px" }}>
+                {/* stacked bar */}
+                <div style={{ width:28, height:barH, display:"flex", flexDirection:"column-reverse", borderRadius:4, overflow:"hidden", background:"var(--border)" }}>
+                  {Object.entries(week).map(([em, count]) => (
+                    <div key={em} title={`${em}: ${count}`}
+                      style={{ width:"100%", height: `${(count / total) * 100}%`, background: EMOTION_COLOR[em] ?? "#9e9e9e", transition:"height 0.3s" }}
+                    />
+                  ))}
+                </div>
+                <span style={{ fontSize:9, color:"var(--muted)", textAlign:"center", lineHeight:1.2 }}>
+                  {new Date(wk).toLocaleDateString(undefined, { month:"short", day:"numeric" })}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Legend — only emotions that appear */}
+      <div style={{ display:"flex", flexWrap:"wrap", gap:"6px 14px", marginTop:14 }}>
+        {topEmotions.map(em => (
+          <span key={em} style={{ display:"flex", alignItems:"center", gap:5, fontSize:11, color:"var(--muted)" }}>
+            <span style={{ width:10, height:10, borderRadius:2, background: EMOTION_COLOR[em], display:"inline-block", flexShrink:0 }}/>
+            {em} <span style={{ color:"var(--text)", fontWeight:500 }}>×{totals[em]}</span>
           </span>
         ))}
       </div>
+
+      {/* Recent streak */}
+      <div style={{ marginTop:16, display:"flex", gap:4 }}>
+        {sorted.slice(-20).map((e, i) => (
+          <span key={i} title={`${e.emotion} · ${new Date(e.created_at*1000).toLocaleDateString()}`}
+            style={{ width:10, height:10, borderRadius:"50%", background: EMOTION_COLOR[e.emotion] ?? "#9e9e9e", display:"inline-block", flexShrink:0 }}
+          />
+        ))}
+        {sorted.length > 20 && <span style={{ fontSize:10, color:"var(--muted)", alignSelf:"center" }}>+{sorted.length-20} more</span>}
+      </div>
+      <div style={{ fontSize:10, color:"var(--muted)", marginTop:4 }}>Last {Math.min(sorted.length,20)} entries</div>
     </div>
   );
 }
