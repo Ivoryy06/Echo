@@ -8,7 +8,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 
 const API_BASE     = import.meta.env.VITE_API_BASE ?? "";
 const IS_WEB_MODE  = !API_BASE || import.meta.env.VITE_WEB_MODE === "true";
-const GEMINI_MODEL = "gemini-1.5-flash";
+const GEMINI_MODEL = "gemini-2.0-flash";
 const SUMMARY_EVERY = 15;
 
 const EMOTIONS = ["joy","sadness","anger","fear","disgust","surprise","anxiety","love","grief","hope","shame","pride","neutral"];
@@ -81,30 +81,59 @@ async function callGemini(apiKey, prompt) {
   return data.candidates[0].content.parts[0].text.trim();
 }
 
-const DARK_SIGNALS = [
+const CRISIS_SIGNALS = [
   "don't want to be here","don't want to exist","want to disappear","want to die",
   "end it","end my life","kill myself","killing myself","no reason to live",
-  "can't go on","can't do this anymore","nobody would miss me","better off without me",
-  "worthless","hopeless","nothing matters","give up on everything","can't feel anything",
-  "numb to everything","completely empty","falling apart","breaking down",
+  "can't go on","nobody would miss me","better off without me",
 ];
 
-const DARK_PREAMBLE = `IMPORTANT CONTEXT: This entry contains language that suggests the writer may be in significant emotional pain or distress.
+const HEAVY_SIGNALS = [
+  "can't do this anymore","worthless","hopeless","nothing matters","give up on everything",
+  "can't feel anything","numb to everything","completely empty","falling apart","breaking down",
+  "hate myself","i'm a failure","i'm pathetic","i'm useless","i'm broken",
+  "so angry","so much anger","i'm furious","i'm so angry",
+  "grief","grieving","i'm grieving","lost everything",
+];
+
+function entryWeight(body) {
+  const b = body.toLowerCase();
+  if (CRISIS_SIGNALS.some(s => b.includes(s))) return "crisis";
+  if (HEAVY_SIGNALS.some(s => b.includes(s)))  return "heavy";
+  return null;
+}
+
+function isDark(body) { return entryWeight(body) !== null; }
+
+const CRISIS_PREAMBLE = `IMPORTANT CONTEXT: This entry contains language that suggests the writer may be in significant emotional pain or distress.
 
 Your response must:
 - Be quieter and slower than usual — no warmth that feels performative
 - Acknowledge the weight of what they wrote without minimising or rushing past it
 - Not offer solutions, reframes, or silver linings of any kind
 - Not use words like "journey", "growth", "strength", or "healing"
-- If the entry contains any hint of self-harm or not wanting to exist, end your response with this exact line on its own paragraph:
+- End your response with this exact line on its own paragraph:
   "If you're in crisis, you don't have to carry this alone. You can reach the 988 Suicide & Crisis Lifeline by calling or texting 988."
-- Otherwise, simply bear witness. Sometimes the most honest thing is to say: this is heavy, and you don't have to explain it.
 
 `;
 
-function isDark(body) {
-  const b = body.toLowerCase();
-  return DARK_SIGNALS.some(s => b.includes(s));
+const HEAVY_PREAMBLE = `IMPORTANT CONTEXT: This entry carries real emotional weight — grief, self-criticism, or anger.
+
+Your response must:
+- Move slowly. Don't rush to comfort or resolve.
+- Sit with the feeling before anything else — name it plainly, without softening it into something easier.
+- Soften harsh self-criticism gently: don't erase it, but don't echo it back unchanged either.
+- For anger: acknowledge it as valid before anything else. Don't redirect or explain it away.
+- For grief: don't reach for meaning. Just be present with the loss.
+- No silver linings, no reframes, no words like "journey", "growth", "strength", or "healing".
+- End quietly — not with hope or resolution, just with the sense that you were truly here.
+
+`;
+
+function getPreamble(body) {
+  const w = entryWeight(body);
+  if (w === "crisis") return CRISIS_PREAMBLE;
+  if (w === "heavy")  return HEAVY_PREAMBLE;
+  return "";
 }
 
 function toneNote(body) {
@@ -126,7 +155,7 @@ function toneNote(body) {
 function mirrorPrompt(body, mode) {
   const tone = toneNote(body);
   const dark = isDark(body);
-  const preamble = dark ? DARK_PREAMBLE : "";
+  const preamble = getPreamble(body);
 
   if (mode === "rewrite") return `${preamble}You are a compassionate journaling companion. Your task is to gently reflect this journal entry back to the writer in second person — as if a trusted friend who truly listened is now speaking.
 

@@ -22,7 +22,7 @@ Powered by **Gemini**. Runs fully locally or in the browser.
 | Frontend | React 18, Vite |
 | Backend | Python 3.11+, Flask |
 | Database | SQLite (local) / localStorage + IndexedDB (web) |
-| AI | Google Gemini 1.5 Flash |
+| AI | Google Gemini 2.0 Flash |
 
 ## Quick Start
 
@@ -56,7 +56,7 @@ Open the app, click **🔑 API key**, paste your Gemini key. Everything runs in 
 | Variable | Default | Description |
 |---|---|---|
 | `GEMINI_API_KEY` | — | Gemini API key (server-side) |
-| `SUMMARY_EVERY` | `5` | Entries between theme summaries |
+| `SUMMARY_EVERY` | `15` | Entries between theme summaries |
 | `PORT` | `5050` | Flask port |
 | `VITE_API_BASE` | `http://localhost:5050` | Backend URL (leave empty for web-only) |
 

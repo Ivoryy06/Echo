@@ -19,7 +19,7 @@ ROOT         = Path(__file__).parent
 DB_PATH      = ROOT / "echo.db"
 SCHEMA       = ROOT / "schema.sql"
 GEMINI_KEY   = os.environ.get("GEMINI_API_KEY", "")
-GEMINI_MODEL = "gemini-1.5-flash"
+GEMINI_MODEL = "gemini-2.0-flash"
 SUMMARY_EVERY = int(os.environ.get("SUMMARY_EVERY", "15"))
 
 EMOTIONS = ["joy","sadness","anger","fear","disgust","surprise","anxiety","love","grief","hope","shame","pride","neutral"]
@@ -68,35 +68,69 @@ def _tone_note(body: str) -> str:
         return "The writer is already questioning themselves. Honour that uncertainty — don't resolve it, sit with it."
     return "Match the writer's natural voice — don't be more formal or more casual than they are."
 
-_DARK_SIGNALS = [
+_CRISIS_SIGNALS = [
     "don't want to be here","don't want to exist","want to disappear","want to die",
     "end it","end my life","kill myself","killing myself","no reason to live",
-    "can't go on","can't do this anymore","nobody would miss me","better off without me",
-    "worthless","hopeless","nothing matters","give up on everything","can't feel anything",
-    "numb to everything","completely empty","falling apart","breaking down",
+    "can't go on","nobody would miss me","better off without me",
 ]
 
-def _is_dark(body: str) -> bool:
-    b = body.lower()
-    return any(signal in b for signal in _DARK_SIGNALS)
+_HEAVY_SIGNALS = [
+    "can't do this anymore","worthless","hopeless","nothing matters","give up on everything",
+    "can't feel anything","numb to everything","completely empty","falling apart","breaking down",
+    "hate myself","i'm a failure","i'm pathetic","i'm useless","i'm broken",
+    "so angry","so much anger","i'm furious","i'm so angry",
+    "grief","grieving","i'm grieving","lost everything",
+]
 
-_DARK_PREAMBLE = """IMPORTANT CONTEXT: This entry contains language that suggests the writer may be in significant emotional pain or distress.
+def _entry_weight(body: str):
+    """Returns 'crisis', 'heavy', or None."""
+    b = body.lower()
+    if any(s in b for s in _CRISIS_SIGNALS):
+        return "crisis"
+    if any(s in b for s in _HEAVY_SIGNALS):
+        return "heavy"
+    return None
+
+def _is_dark(body: str) -> bool:
+    return _entry_weight(body) is not None
+
+_CRISIS_PREAMBLE = """IMPORTANT CONTEXT: This entry contains language that suggests the writer may be in significant emotional pain or distress.
 
 Your response must:
 - Be quieter and slower than usual — no warmth that feels performative
 - Acknowledge the weight of what they wrote without minimising or rushing past it
 - Not offer solutions, reframes, or silver linings of any kind
 - Not use words like "journey", "growth", "strength", or "healing"
-- If the entry contains any hint of self-harm or not wanting to exist, end your response with this exact line on its own paragraph:
+- End your response with this exact line on its own paragraph:
   "If you're in crisis, you don't have to carry this alone. You can reach the 988 Suicide & Crisis Lifeline by calling or texting 988."
-- Otherwise, simply bear witness. Sometimes the most honest thing is to say: this is heavy, and you don't have to explain it.
 
 """
+
+_HEAVY_PREAMBLE = """IMPORTANT CONTEXT: This entry carries real emotional weight — grief, self-criticism, or anger.
+
+Your response must:
+- Move slowly. Don't rush to comfort or resolve.
+- Sit with the feeling before anything else — name it plainly, without softening it into something easier.
+- Soften harsh self-criticism gently: don't erase it, but don't echo it back unchanged either.
+- For anger: acknowledge it as valid before anything else. Don't redirect or explain it away.
+- For grief: don't reach for meaning. Just be present with the loss.
+- No silver linings, no reframes, no words like "journey", "growth", "strength", or "healing".
+- End quietly — not with hope or resolution, just with the sense that you were truly here.
+
+"""
+
+def _get_preamble(body: str) -> str:
+    weight = _entry_weight(body)
+    if weight == "crisis":
+        return _CRISIS_PREAMBLE
+    if weight == "heavy":
+        return _HEAVY_PREAMBLE
+    return ""
 
 def mirror_prompt(body: str, mode: str) -> str:
     tone = _tone_note(body)
     dark = _is_dark(body)
-    preamble = _DARK_PREAMBLE if dark else ""
+    preamble = _get_preamble(body)
 
     if mode == "rewrite":
         return f"""{preamble}You are a compassionate journaling companion. Your task is to gently reflect this journal entry back to the writer in second person — as if a trusted friend who truly listened is now speaking.
