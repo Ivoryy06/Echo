@@ -686,23 +686,3 @@ export default function App() {
   );
 }
 
-const [streaks, setStreaks] = userState(null)
-
-useEffect(() => {
-  fetch('/api/streaks')
-  .then(r => r.json())
-  .then(setStreaks)
-}, [])
-
-{streaks && (
-  <div className="streaks">
-    <div>
-      <span>{streaks.current}</span>
-      <label>longest</label>
-    </div>
-    <div>
-      <span>{streak.total_days}</span>
-      <label>days written</label>
-    </div>
-  </div>
-)}
