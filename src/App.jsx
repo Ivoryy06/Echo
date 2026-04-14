@@ -544,142 +544,128 @@ export default function App() {
   const canSubmit = body.trim().length >= 10 && !loading && (backendOk || (isOnline && apiKey) || !isOnline);
 
   return (
-    <div style={{ fontFamily:"system-ui, -apple-system, sans-serif", maxWidth:680, margin:"0 auto", padding:"2rem 1.25rem", minHeight:"100vh" }}>
+    <div className="layout">
 
-      {/* Header */}
-      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:"2rem" }}>
-        <div>
-          <h1 style={{ fontSize:26, fontWeight:700, margin:0, color:"var(--text)", letterSpacing:"-0.3px" }}>🪞 Echo</h1>
-          <p style={{ fontSize:12, color:"var(--muted)", margin:"2px 0 0", fontStyle:"italic" }}>your voice, reflected</p>
+      {/* ── Sidebar ── */}
+      <aside className="sidebar">
+        <div className="sidebar-brand">
+          <h1>🪞 Echo</h1>
+          <p>your voice, reflected</p>
         </div>
-        <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+
+        <nav className="sidebar-nav">
+          {[["write","✏️","Write"],["entries","📖","Entries"],["timeline","📊","Timeline"],["summaries","✨","Summaries"]].map(([id, icon, label]) => (
+            <button key={id} className={`nav-btn ${tab===id?"active":""}`} onClick={() => setTab(id)}>
+              <span className="nav-icon">{icon}</span>
+              <span>{label}</span>
+            </button>
+          ))}
+        </nav>
+
+        <div className="sidebar-footer">
           {pendingCount > 0 && (
-            <span style={{ fontSize:11, padding:"3px 8px", borderRadius:20, background:"#fff3cd", color:"#856404", border:"1px solid #ffc107" }}>
+            <span style={{ fontSize:11, padding:"3px 8px", borderRadius:20, background:"rgba(255,193,7,0.15)", color:"#ffc107", border:"1px solid rgba(255,193,7,0.3)" }}>
               {pendingCount} pending
             </span>
           )}
-          <span style={{ fontSize:11, padding:"3px 10px", borderRadius:20, border:"1px solid",
+          <span className="status-pill" style={{
             background: isOnline ? "var(--green-bg)" : "var(--red-bg)",
             color:      isOnline ? "var(--green)"    : "var(--red)",
-            borderColor:isOnline ? "#a8d8b8"         : "#e8b0a0",
+            borderColor:isOnline ? "rgba(52,211,153,0.3)" : "rgba(248,113,113,0.3)",
           }}>
-            {isOnline ? (backendOk ? "● local" : "● web") : "● offline"}
+            <span>●</span> {isOnline ? (backendOk ? "local" : "web") : "offline"}
           </span>
           {webMode && (
-            <button onClick={() => setShowKey(v => !v)} style={{ fontSize:12, padding:"4px 10px", borderRadius:6, border:"1px solid var(--border)", background:"var(--surface)", cursor:"pointer", color:"var(--text)" }}>
+            <button onClick={() => setShowKey(v => !v)} style={{ fontSize:12, padding:"6px 10px", borderRadius:8, border:"1px solid var(--border)", background:"var(--surface)", cursor:"pointer", color:"var(--text-dim)", textAlign:"left" }}>
               {apiKey ? "🔑 key set" : "🔑 API key"}
             </button>
           )}
         </div>
-      </div>
+      </aside>
 
-      {/* API key input (web mode) */}
-      {webMode && showKey && (
-        <div style={{ marginBottom:"1.5rem", padding:"12px 16px", background:"var(--surface)", border:"1px solid var(--border)", borderRadius:10 }}>
-          <label style={{ fontSize:12, color:"var(--muted)", display:"block", marginBottom:6 }}>Groq API Key (stored in browser only)</label>
-          <input type="password" value={apiKey}
-            onChange={e => { setApiKey(e.target.value); localStorage.setItem("echo_groq_key", e.target.value); }}
-            placeholder="AIza..."
-            style={{ width:"100%", padding:"8px 10px", fontSize:13, border:"1px solid var(--border)", borderRadius:6, fontFamily:"monospace", background:"var(--bg)", color:"var(--text)", boxSizing:"border-box" }}
-          />
-        </div>
-      )}
+      {/* ── Main ── */}
+      <main className="main">
 
-      {/* Tabs */}
-      <div style={{ display:"flex", borderBottom:"1px solid var(--border)", marginBottom:"1.5rem", gap:2 }}>
-        {[["write","Write"],["entries","Entries"],["timeline","Timeline"],["summaries","Summaries"]].map(([id, label]) => (
-          <button key={id} onClick={() => setTab(id)} style={{
-            padding:"8px 16px", fontSize:13, border:"none", cursor:"pointer", borderBottom:"2px solid",
-            background:"none", fontFamily:"inherit",
-            color:       tab===id ? "var(--accent)"  : "var(--muted)",
-            borderColor: tab===id ? "var(--accent)"  : "transparent",
-            fontWeight:  tab===id ? 600 : 400,
-          }}>{label}</button>
-        ))}
-      </div>
-
-      {/* ── WRITE ── */}
-      {tab === "write" && (
-        <div>
-          {/* Mirror mode picker */}
-          <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:8, marginBottom:"1.25rem" }}>
-            {MIRROR_MODES.map(m => (
-              <button key={m.key} onClick={() => setMode(m.key)} style={{
-                padding:"10px 12px", textAlign:"left", cursor:"pointer", border:"1px solid",
-                borderRadius:8, background: mode===m.key ? "var(--accent-light)" : "var(--surface)",
-                borderColor: mode===m.key ? "var(--accent-mid)" : "var(--border)",
-              }}>
-                <div style={{ fontSize:13, fontWeight:500, color: mode===m.key ? "var(--accent)" : "var(--text)" }}>{m.label}</div>
-                <div style={{ fontSize:11, color:"var(--muted)", marginTop:2 }}>{m.desc}</div>
-              </button>
-            ))}
+        {/* API key input */}
+        {webMode && showKey && (
+          <div className="api-key-panel" style={{ marginBottom:"1.5rem" }}>
+            <label>Groq API Key (stored in browser only)</label>
+            <input type="password" value={apiKey}
+              onChange={e => { setApiKey(e.target.value); localStorage.setItem("echo_groq_key", e.target.value); }}
+              placeholder="gsk_..."
+            />
           </div>
+        )}
 
-          <textarea value={body} onChange={e => setBody(e.target.value)}
-            placeholder="What's on your mind today…"
-            rows={8}
-            style={{ width:"100%", padding:"14px 16px", fontSize:15, lineHeight:1.9, border:"1px solid var(--border)", borderRadius:10, fontFamily:"'Lora', Georgia, serif", color:"var(--text)", background:"var(--bg)", resize:"vertical", boxSizing:"border-box" }}
-          />
-          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginTop:8 }}>
-            <span style={{ fontSize:12, color:"var(--muted)" }}>{body.trim().split(/\s+/).filter(Boolean).length} words</span>
-            <button onClick={submit} disabled={!canSubmit} style={{
-              padding:"10px 24px", fontSize:14, fontWeight:600, borderRadius:8, border:"none", cursor: canSubmit ? "pointer" : "not-allowed",
-              background: canSubmit ? "var(--accent)" : "var(--border)", color: canSubmit ? "#fff" : "var(--muted)",
-              display:"flex", alignItems:"center", gap:8,
-            }}>
-              {loading ? <><Spinner/> Reflecting…</> : "Reflect →"}
-            </button>
-          </div>
+        {/* ── WRITE ── */}
+        {tab === "write" && (
+          <div>
+            <h2 className="page-title">What's on your mind?</h2>
 
-          {/* Last result */}
-          {lastResult && (
-            <div style={{ marginTop:"1.5rem" }}>
-              <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:10 }}>
-                <EmotionDot emotion={lastResult.emotion} size={12}/>
-                <span style={{ fontSize:12, color:"var(--muted)" }}>Detected: <strong>{lastResult.emotion}</strong></span>
-              </div>
-              {lastResult.mirror && (
-                <div style={{ padding:"14px 18px", background:"var(--accent-light)", border:"1px solid var(--accent-mid)", borderRadius:10, fontSize:14, lineHeight:1.9, color:"var(--text)", fontStyle:"italic", whiteSpace:"pre-wrap", fontFamily:"'Lora', Georgia, serif" }}>
-                  {lastResult.mirror}
-                </div>
-              )}
-              {lastResult.summary && (
-                <div style={{ marginTop:12 }}>
-                  <SummaryCard summary={lastResult.summary}/>
-                </div>
-              )}
+            <div className="mode-picker">
+              {MIRROR_MODES.map(m => (
+                <button key={m.key} className={`mode-btn ${mode===m.key?"active":""}`} onClick={() => setMode(m.key)} title={m.desc}>
+                  {m.label}
+                </button>
+              ))}
             </div>
-          )}
-        </div>
-      )}
 
-      {/* ── ENTRIES ── */}
-      {tab === "entries" && (
-        <div>
-          {entries.length === 0
-            ? <p style={{ color:"var(--muted)", fontSize:14 }}>No entries yet. Write your first one.</p>
-            : entries.map(e => <EntryCard key={e.id} entry={e} onDelete={deleteEntry}/>)
-          }
-        </div>
-      )}
+            <textarea className="journal-textarea" value={body} onChange={e => setBody(e.target.value)}
+              placeholder="Start writing…"
+              rows={10}
+            />
 
-      {/* ── TIMELINE ── */}
-      {tab === "timeline" && (
-        <div>
-          <MoodTimeline entries={entries}/>
-          {entries.length === 0 && <p style={{ color:"var(--muted)", fontSize:14 }}>No entries yet.</p>}
-        </div>
-      )}
+            <div className="submit-row">
+              <span className="word-count">{body.trim().split(/\s+/).filter(Boolean).length} words</span>
+              <button className="submit-btn" onClick={submit} disabled={!canSubmit} style={{ opacity: canSubmit ? 1 : 0.4, cursor: canSubmit ? "pointer" : "not-allowed" }}>
+                {loading ? <><Spinner/> Reflecting…</> : "Reflect →"}
+              </button>
+            </div>
 
-      {/* ── SUMMARIES ── */}
-      {tab === "summaries" && (
-        <div>
-          {summaries.length === 0
-            ? <p style={{ color:"var(--muted)", fontSize:14 }}>Summaries appear every {SUMMARY_EVERY} entries.</p>
-            : summaries.map((s, i) => <SummaryCard key={i} summary={s}/>)
-          }
-        </div>
-      )}
+            {lastResult && (
+              <div className="result-box">
+                <div className="emotion-tag">
+                  <EmotionDot emotion={lastResult.emotion} size={12}/>
+                  Detected: <strong>{lastResult.emotion}</strong>
+                </div>
+                {lastResult.mirror && <div className="mirror-text">{lastResult.mirror}</div>}
+                {lastResult.summary && <div style={{ marginTop:12 }}><SummaryCard summary={lastResult.summary}/></div>}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── ENTRIES ── */}
+        {tab === "entries" && (
+          <div>
+            <h2 className="page-title">Your Entries</h2>
+            {entries.length === 0
+              ? <p className="empty-state">No entries yet. Write your first one.</p>
+              : entries.map(e => <EntryCard key={e.id} entry={e} onDelete={deleteEntry}/>)
+            }
+          </div>
+        )}
+
+        {/* ── TIMELINE ── */}
+        {tab === "timeline" && (
+          <div>
+            <h2 className="page-title">Mood Timeline</h2>
+            <MoodTimeline entries={entries}/>
+          </div>
+        )}
+
+        {/* ── SUMMARIES ── */}
+        {tab === "summaries" && (
+          <div>
+            <h2 className="page-title">Summaries</h2>
+            {summaries.length === 0
+              ? <p className="empty-state">Summaries appear every {SUMMARY_EVERY} entries.</p>
+              : summaries.map((s, i) => <SummaryCard key={i} summary={s}/>)
+            }
+          </div>
+        )}
+
+      </main>
 
       {toast && <Toast msg={toast} onDone={() => setToast(null)}/>}
     </div>
