@@ -237,32 +237,25 @@ function lsSet(key, val) { localStorage.setItem(key, JSON.stringify(val)); }
 // ── Tiny UI components ────────────────────────────────────────────────────────
 
 const Spinner = () => (
-  <span style={{ display:"inline-block", width:16, height:16, border:"2px solid var(--accent)", borderTopColor:"transparent", borderRadius:"50%", animation:"spin 0.7s linear infinite", verticalAlign:"middle" }}/>
+  <span style={{ display:"inline-block", width:14, height:14, border:"2px solid rgba(13,13,15,0.3)", borderTopColor:"#0d0d0f", borderRadius:"50%", animation:"spin 0.7s linear infinite", verticalAlign:"middle" }}/>
 );
 
 const EmotionDot = ({ emotion, size=10 }) => (
-  <span style={{ display:"inline-block", width:size, height:size, borderRadius:"50%", background: EMOTION_COLOR[emotion] ?? "#9e9e9e", flexShrink:0 }} title={emotion}/>
+  <span style={{ display:"inline-block", width:size, height:size, borderRadius:"50%", background: EMOTION_COLOR[emotion] ?? "#4a4a5a", flexShrink:0 }} title={emotion}/>
 );
 
 const Toast = ({ msg, onDone }) => {
   useEffect(() => { const t = setTimeout(onDone, 3000); return () => clearTimeout(t); }, []);
-  return (
-    <div style={{ position:"fixed", bottom:24, left:"50%", transform:"translateX(-50%)", background:"var(--surface)", border:"1px solid var(--border)", borderRadius:8, padding:"10px 20px", fontSize:13, color:"var(--text)", boxShadow:"0 4px 20px rgba(0,0,0,0.15)", zIndex:999 }}>
-      {msg}
-    </div>
-  );
+  return <div className="toast">{msg}</div>;
 };
 
 // ── Mood Timeline ─────────────────────────────────────────────────────────────
 
 function MoodTimeline({ entries }) {
-  if (!entries.length) return (
-    <p style={{ color:"var(--muted)", fontSize:14 }}>No entries yet.</p>
-  );
+  if (!entries.length) return <p className="empty-state">No entries yet.</p>;
 
   const sorted = [...entries].sort((a, b) => a.created_at - b.created_at);
 
-  // Group by ISO week (Mon–Sun)
   function weekKey(ts) {
     const d = new Date(ts * 1000);
     const day = d.getDay() || 7;
@@ -277,39 +270,30 @@ function MoodTimeline({ entries }) {
     weeks[wk][e.emotion] = (weeks[wk][e.emotion] || 0) + 1;
   }
 
-  const weekKeys   = Object.keys(weeks).sort();
-  const maxCount   = Math.max(...weekKeys.flatMap(wk => Object.values(weeks[wk])));
-  const usedEmotions = [...new Set(sorted.map(e => e.emotion))];
-
-  // Emotion frequency totals for the legend
+  const weekKeys = Object.keys(weeks).sort();
   const totals = {};
   for (const e of sorted) totals[e.emotion] = (totals[e.emotion] || 0) + 1;
   const topEmotions = Object.entries(totals).sort((a,b) => b[1]-a[1]).map(([em]) => em);
 
   return (
-    <div>
-      <div style={{ fontSize:11, textTransform:"uppercase", letterSpacing:"0.08em", color:"var(--muted)", marginBottom:16 }}>
-        Mood Timeline · {sorted.length} {sorted.length === 1 ? "entry" : "entries"}
-      </div>
+    <div className="timeline-wrap">
+      <p className="timeline-stat">{sorted.length} {sorted.length === 1 ? "entry" : "entries"} · weekly mood</p>
 
-      {/* Stacked bar chart by week */}
       <div style={{ overflowX:"auto" }}>
         <div style={{ display:"flex", alignItems:"flex-end", gap:6, minWidth: weekKeys.length * 44, paddingBottom:4 }}>
           {weekKeys.map(wk => {
             const week = weeks[wk];
             const total = Object.values(week).reduce((s,n) => s+n, 0);
-            const barH  = 80;
             return (
               <div key={wk} style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:4, flex:"0 0 38px" }}>
-                {/* stacked bar */}
-                <div style={{ width:28, height:barH, display:"flex", flexDirection:"column-reverse", borderRadius:4, overflow:"hidden", background:"var(--border)" }}>
+                <div style={{ width:28, height:80, display:"flex", flexDirection:"column-reverse", borderRadius:5, overflow:"hidden", background:"var(--surface-2)" }}>
                   {Object.entries(week).map(([em, count]) => (
                     <div key={em} title={`${em}: ${count}`}
-                      style={{ width:"100%", height: `${(count / total) * 100}%`, background: EMOTION_COLOR[em] ?? "#9e9e9e", transition:"height 0.3s" }}
+                      style={{ width:"100%", height:`${(count/total)*100}%`, background: EMOTION_COLOR[em] ?? "#4a4a5a" }}
                     />
                   ))}
                 </div>
-                <span style={{ fontSize:9, color:"var(--muted)", textAlign:"center", lineHeight:1.2 }}>
+                <span style={{ fontSize:9, color:"var(--muted)", textAlign:"center" }}>
                   {new Date(wk).toLocaleDateString(undefined, { month:"short", day:"numeric" })}
                 </span>
               </div>
@@ -318,26 +302,23 @@ function MoodTimeline({ entries }) {
         </div>
       </div>
 
-      {/* Legend — only emotions that appear */}
-      <div style={{ display:"flex", flexWrap:"wrap", gap:"6px 14px", marginTop:14 }}>
+      <div style={{ display:"flex", flexWrap:"wrap", gap:"6px 14px", marginTop:18 }}>
         {topEmotions.map(em => (
-          <span key={em} style={{ display:"flex", alignItems:"center", gap:5, fontSize:11, color:"var(--muted)" }}>
-            <span style={{ width:10, height:10, borderRadius:2, background: EMOTION_COLOR[em], display:"inline-block", flexShrink:0 }}/>
+          <span key={em} style={{ display:"flex", alignItems:"center", gap:5, fontSize:11.5, color:"var(--text-dim)" }}>
+            <span style={{ width:9, height:9, borderRadius:2, background: EMOTION_COLOR[em], display:"inline-block" }}/>
             {em} <span style={{ color:"var(--text)", fontWeight:500 }}>×{totals[em]}</span>
           </span>
         ))}
       </div>
 
-      {/* Recent streak */}
-      <div style={{ marginTop:16, display:"flex", gap:4 }}>
+      <div style={{ display:"flex", gap:4, flexWrap:"wrap", marginTop:20 }}>
         {sorted.slice(-20).map((e, i) => (
           <span key={i} title={`${e.emotion} · ${new Date(e.created_at*1000).toLocaleDateString()}`}
-            style={{ width:10, height:10, borderRadius:"50%", background: EMOTION_COLOR[e.emotion] ?? "#9e9e9e", display:"inline-block", flexShrink:0 }}
+            style={{ width:10, height:10, borderRadius:"50%", background: EMOTION_COLOR[e.emotion] ?? "#4a4a5a", display:"inline-block" }}
           />
         ))}
-        {sorted.length > 20 && <span style={{ fontSize:10, color:"var(--muted)", alignSelf:"center" }}>+{sorted.length-20} more</span>}
+        {sorted.length > 20 && <span style={{ fontSize:10, color:"var(--muted)", alignSelf:"center" }}>+{sorted.length-20}</span>}
       </div>
-      <div style={{ fontSize:10, color:"var(--muted)", marginTop:4 }}>Last {Math.min(sorted.length,20)} entries</div>
     </div>
   );
 }
@@ -352,24 +333,20 @@ function EntryCard({ entry, onDelete }) {
   const modeLabel = MIRROR_MODES.find(m => m.key === entry.mirror_mode)?.label ?? "Reflect";
 
   return (
-    <div style={{ background:"var(--surface)", border:"1px solid var(--border)", borderRadius:10, padding:"14px 16px", marginBottom:10 }}>
-      <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:8 }}>
+    <div className="entry-card">
+      <div className="entry-meta">
         <EmotionDot emotion={entry.emotion}/>
-        <span style={{ fontSize:12, color:"var(--muted)", flex:1 }}>{date}</span>
-        <span style={{ fontSize:11, padding:"2px 8px", borderRadius:20, background:"var(--accent-light)", color:"var(--accent)" }}>{modeLabel}</span>
-        <button onClick={() => onDelete(entry.id)} style={{ background:"none", border:"none", cursor:"pointer", color:"var(--muted)", fontSize:14, padding:2 }}>✕</button>
+        <span className="entry-date">{date}</span>
+        <span className="entry-mode-tag">{modeLabel}</span>
+        <button className="delete-btn" onClick={() => onDelete(entry.id)}>✕</button>
       </div>
-      <p style={{ fontSize:14, lineHeight:1.7, color:"var(--text)", margin:0, whiteSpace:"pre-wrap" }}>{entry.body}</p>
+      <p className="entry-body">{entry.body}</p>
       {entry.mirror && (
         <>
-          <button onClick={() => setOpen(v => !v)} style={{ marginTop:10, background:"none", border:"none", cursor:"pointer", fontSize:12, color:"var(--accent)", padding:0 }}>
-            {open ? "▲ Hide reflection" : "▼ Show reflection"}
+          <button className="toggle-mirror-btn" onClick={() => setOpen(v => !v)}>
+            {open ? "▲ hide reflection" : "▼ show reflection"}
           </button>
-          {open && (
-            <div style={{ marginTop:8, padding:"10px 14px", background:"var(--accent-light)", borderRadius:8, fontSize:13, lineHeight:1.8, color:"var(--text)", fontStyle:"italic", whiteSpace:"pre-wrap" }}>
-              {entry.mirror}
-            </div>
-          )}
+          {open && <div className="mirror-collapsed">{entry.mirror}</div>}
         </>
       )}
     </div>
@@ -380,11 +357,9 @@ function EntryCard({ entry, onDelete }) {
 
 function SummaryCard({ summary }) {
   return (
-    <div style={{ background:"var(--surface)", border:"1px solid var(--accent-mid)", borderRadius:10, padding:"14px 16px", marginBottom:10 }}>
-      <div style={{ fontSize:11, textTransform:"uppercase", letterSpacing:"0.08em", color:"var(--accent)", marginBottom:6 }}>
-        Theme Summary · Entries {summary.range ?? summary.entry_range}
-      </div>
-      <p style={{ fontSize:13, lineHeight:1.8, color:"var(--text)", margin:0, whiteSpace:"pre-wrap" }}>{summary.content}</p>
+    <div className="summary-card">
+      <div className="summary-label">Theme Summary · Entries {summary.range ?? summary.entry_range}</div>
+      <p className="summary-text">{summary.content}</p>
     </div>
   );
 }
@@ -544,51 +519,46 @@ export default function App() {
   const canSubmit = body.trim().length >= 10 && !loading && (backendOk || (isOnline && apiKey) || !isOnline);
 
   return (
-    <div className="layout">
-
-      {/* ── Sidebar ── */}
-      <aside className="sidebar">
-        <div className="sidebar-brand">
+    <>
+      {/* ── Topbar ── */}
+      <header className="topbar">
+        <div className="topbar-brand">
           <h1>🪞 Echo</h1>
-          <p>your voice, reflected</p>
+          <span>your voice, reflected</span>
         </div>
 
-        <nav className="sidebar-nav">
-          {[["write","✏️","Write"],["entries","📖","Entries"],["timeline","📊","Timeline"],["summaries","✨","Summaries"]].map(([id, icon, label]) => (
-            <button key={id} className={`nav-btn ${tab===id?"active":""}`} onClick={() => setTab(id)}>
-              <span className="nav-icon">{icon}</span>
-              <span>{label}</span>
-            </button>
+        <nav className="topbar-nav">
+          {[["write","Write"],["entries","Entries"],["timeline","Timeline"],["summaries","Summaries"]].map(([id, label]) => (
+            <button key={id} className={`topbar-btn ${tab===id?"active":""}`} onClick={() => setTab(id)}>{label}</button>
           ))}
         </nav>
 
-        <div className="sidebar-footer">
+        <div className="topbar-right">
           {pendingCount > 0 && (
-            <span style={{ fontSize:11, padding:"3px 8px", borderRadius:20, background:"rgba(255,193,7,0.15)", color:"#ffc107", border:"1px solid rgba(255,193,7,0.3)" }}>
+            <span style={{ fontSize:11, padding:"3px 9px", borderRadius:20, background:"rgba(251,191,36,0.1)", color:"#fbbf24", border:"1px solid rgba(251,191,36,0.25)" }}>
               {pendingCount} pending
             </span>
           )}
           <span className="status-pill" style={{
-            background: isOnline ? "var(--green-bg)" : "var(--red-bg)",
-            color:      isOnline ? "var(--green)"    : "var(--red)",
-            borderColor:isOnline ? "rgba(52,211,153,0.3)" : "rgba(248,113,113,0.3)",
+            background:  isOnline ? "var(--green-bg)" : "var(--red-bg)",
+            color:       isOnline ? "var(--green)"    : "var(--red)",
+            borderColor: isOnline ? "rgba(74,222,128,0.25)" : "rgba(248,113,113,0.25)",
           }}>
-            <span>●</span> {isOnline ? (backendOk ? "local" : "web") : "offline"}
+            ● {isOnline ? (backendOk ? "local" : "web") : "offline"}
           </span>
           {webMode && (
-            <button onClick={() => setShowKey(v => !v)} style={{ fontSize:12, padding:"6px 10px", borderRadius:8, border:"1px solid var(--border)", background:"var(--surface)", cursor:"pointer", color:"var(--text-dim)", textAlign:"left" }}>
+            <button onClick={() => setShowKey(v => !v)} style={{ fontSize:12, padding:"5px 10px", borderRadius:7, border:"1px solid var(--border)", background:"var(--surface)", cursor:"pointer", color:"var(--text-dim)" }}>
               {apiKey ? "🔑 key set" : "🔑 API key"}
             </button>
           )}
         </div>
-      </aside>
+      </header>
 
-      {/* ── Main ── */}
-      <main className="main">
+      {/* ── Page content ── */}
+      <div className="page">
 
-        {/* API key input */}
         {webMode && showKey && (
-          <div className="api-key-panel" style={{ marginBottom:"1.5rem" }}>
+          <div className="api-key-panel">
             <label>Groq API Key (stored in browser only)</label>
             <input type="password" value={apiKey}
               onChange={e => { setApiKey(e.target.value); localStorage.setItem("echo_groq_key", e.target.value); }}
@@ -600,11 +570,11 @@ export default function App() {
         {/* ── WRITE ── */}
         {tab === "write" && (
           <div>
-            <h2 className="page-title">What's on your mind?</h2>
+            <h2 className="write-heading">What's on your mind?</h2>
 
-            <div className="mode-picker">
+            <div className="mode-tabs">
               {MIRROR_MODES.map(m => (
-                <button key={m.key} className={`mode-btn ${mode===m.key?"active":""}`} onClick={() => setMode(m.key)} title={m.desc}>
+                <button key={m.key} className={`mode-tab ${mode===m.key?"active":""}`} onClick={() => setMode(m.key)} title={m.desc}>
                   {m.label}
                 </button>
               ))}
@@ -615,21 +585,21 @@ export default function App() {
               rows={10}
             />
 
-            <div className="submit-row">
+            <div className="write-footer">
               <span className="word-count">{body.trim().split(/\s+/).filter(Boolean).length} words</span>
-              <button className="submit-btn" onClick={submit} disabled={!canSubmit} style={{ opacity: canSubmit ? 1 : 0.4, cursor: canSubmit ? "pointer" : "not-allowed" }}>
+              <button className="submit-btn" onClick={submit} disabled={!canSubmit}>
                 {loading ? <><Spinner/> Reflecting…</> : "Reflect →"}
               </button>
             </div>
 
             {lastResult && (
               <div className="result-box">
-                <div className="emotion-tag">
-                  <EmotionDot emotion={lastResult.emotion} size={12}/>
-                  Detected: <strong>{lastResult.emotion}</strong>
+                <div className="emotion-chip">
+                  <EmotionDot emotion={lastResult.emotion} size={8}/>
+                  {lastResult.emotion}
                 </div>
-                {lastResult.mirror && <div className="mirror-text">{lastResult.mirror}</div>}
-                {lastResult.summary && <div style={{ marginTop:12 }}><SummaryCard summary={lastResult.summary}/></div>}
+                {lastResult.mirror && <div className="mirror-block">{lastResult.mirror}</div>}
+                {lastResult.summary && <div style={{ marginTop:16 }}><SummaryCard summary={lastResult.summary}/></div>}
               </div>
             )}
           </div>
@@ -638,7 +608,10 @@ export default function App() {
         {/* ── ENTRIES ── */}
         {tab === "entries" && (
           <div>
-            <h2 className="page-title">Your Entries</h2>
+            <div className="section-header">
+              <h2 className="section-title">Your Entries</h2>
+              {entries.length > 0 && <span className="count-badge">{entries.length}</span>}
+            </div>
             {entries.length === 0
               ? <p className="empty-state">No entries yet. Write your first one.</p>
               : entries.map(e => <EntryCard key={e.id} entry={e} onDelete={deleteEntry}/>)
@@ -649,7 +622,9 @@ export default function App() {
         {/* ── TIMELINE ── */}
         {tab === "timeline" && (
           <div>
-            <h2 className="page-title">Mood Timeline</h2>
+            <div className="section-header">
+              <h2 className="section-title">Mood Timeline</h2>
+            </div>
             <MoodTimeline entries={entries}/>
           </div>
         )}
@@ -657,7 +632,10 @@ export default function App() {
         {/* ── SUMMARIES ── */}
         {tab === "summaries" && (
           <div>
-            <h2 className="page-title">Summaries</h2>
+            <div className="section-header">
+              <h2 className="section-title">Summaries</h2>
+              {summaries.length > 0 && <span className="count-badge">{summaries.length}</span>}
+            </div>
             {summaries.length === 0
               ? <p className="empty-state">Summaries appear every {SUMMARY_EVERY} entries.</p>
               : summaries.map((s, i) => <SummaryCard key={i} summary={s}/>)
@@ -665,10 +643,10 @@ export default function App() {
           </div>
         )}
 
-      </main>
+      </div>
 
       {toast && <Toast msg={toast} onDone={() => setToast(null)}/>}
-    </div>
+    </>
   );
 }
 
