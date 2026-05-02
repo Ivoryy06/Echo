@@ -1,10 +1,10 @@
-// Echo — reflective journaling app
-// Dual mode: local (Flask + SQLite) or web (Groq direct + localStorage/IndexedDB)
-// Offline-first: caches entries locally, syncs to backend when reachable
+
+
+
 
 import { useState, useEffect, useCallback, useRef } from "react";
 
-// ── Config ────────────────────────────────────────────────────────────────────
+
 
 const API_BASE     = import.meta.env.VITE_API_BASE ?? "";
 const IS_WEB_MODE  = !API_BASE || import.meta.env.VITE_WEB_MODE === "true";
@@ -26,7 +26,7 @@ const MIRROR_MODES = [
   { key:"continuation", label:"Continue",    desc:"Continues your entry in your voice" },
 ];
 
-// ── IndexedDB (offline cache) ─────────────────────────────────────────────────
+
 
 const DB_NAME = "echo_offline";
 const STORE   = "pending_entries";
@@ -68,7 +68,7 @@ async function idbClear() {
   });
 }
 
-// ── Groq (web mode) ───────────────────────────────────────────────────────────
+
 
 async function callGroq(apiKey, prompt) {
   const resp = await fetch(`${GROQ_BASE}/chat/completions`, {
@@ -186,7 +186,7 @@ Journal entry:
 ${body}`;
 
   if (mode === "continuation") {
-    if (dark) return mirrorPrompt(body, "rewrite"); // don't continue dark entries
+    if (dark) return mirrorPrompt(body, "rewrite"); 
     return `You are a ghostwriter who has just read this journal entry. Continue it in the writer's exact voice — same sentence rhythm, same vocabulary register, same emotional temperature.
 
 Tone guidance: ${tone}
@@ -226,7 +226,7 @@ Entries:
 ${block}`;
 }
 
-// ── localStorage helpers ──────────────────────────────────────────────────────
+
 
 function lsGet(key, fallback) {
   try { return JSON.parse(localStorage.getItem(key)) ?? fallback; }
@@ -234,7 +234,7 @@ function lsGet(key, fallback) {
 }
 function lsSet(key, val) { localStorage.setItem(key, JSON.stringify(val)); }
 
-// ── Tiny UI components ────────────────────────────────────────────────────────
+
 
 const Spinner = () => (
   <span style={{ display:"inline-block", width:14, height:14, border:"2px solid rgba(13,13,15,0.3)", borderTopColor:"#0d0d0f", borderRadius:"50%", animation:"spin 0.7s linear infinite", verticalAlign:"middle" }}/>
@@ -249,7 +249,7 @@ const Toast = ({ msg, onDone }) => {
   return <div className="toast">{msg}</div>;
 };
 
-// ── Mood Timeline ─────────────────────────────────────────────────────────────
+
 
 function MoodTimeline({ entries }) {
   if (!entries.length) return <p className="empty-state">No entries yet.</p>;
@@ -323,7 +323,7 @@ function MoodTimeline({ entries }) {
   );
 }
 
-// ── Entry Card ────────────────────────────────────────────────────────────────
+
 
 function EntryCard({ entry, onDelete }) {
   const [open, setOpen] = useState(false);
@@ -353,7 +353,7 @@ function EntryCard({ entry, onDelete }) {
   );
 }
 
-// ── Summary Card ──────────────────────────────────────────────────────────────
+
 
 function SummaryCard({ summary }) {
   return (
@@ -364,7 +364,7 @@ function SummaryCard({ summary }) {
   );
 }
 
-// ── Main App ──────────────────────────────────────────────────────────────────
+
 
 export default function App() {
   const [tab,        setTab]        = useState("write");
@@ -379,9 +379,9 @@ export default function App() {
   const [isOnline,   setIsOnline]   = useState(navigator.onLine);
   const [backendOk,  setBackendOk]  = useState(null);
   const [pendingCount, setPendingCount] = useState(0);
-  const [lastResult, setLastResult] = useState(null); // { mirror, emotion, summary }
+  const [lastResult, setLastResult] = useState(null); 
 
-  // ── online/offline ──
+  
   useEffect(() => {
     const on  = () => setIsOnline(true);
     const off = () => setIsOnline(false);
@@ -390,7 +390,7 @@ export default function App() {
     return () => { window.removeEventListener("online", on); window.removeEventListener("offline", off); };
   }, []);
 
-  // ── backend health check ──
+  
   useEffect(() => {
     if (IS_WEB_MODE) { setBackendOk(false); return; }
     fetch(`${API_BASE}/api/health`)
@@ -399,7 +399,7 @@ export default function App() {
       .catch(() => setBackendOk(false));
   }, []);
 
-  // ── load entries from backend ──
+  
   useEffect(() => {
     if (!backendOk) return;
     fetch(`${API_BASE}/api/entries`).then(r => r.json()).then(data => {
@@ -412,12 +412,12 @@ export default function App() {
     }).catch(() => {});
   }, [backendOk]);
 
-  // ── pending offline count ──
+  
   useEffect(() => {
     idbGetAll().then(items => setPendingCount(items.length)).catch(() => {});
   }, []);
 
-  // ── sync offline cache when back online ──
+  
   useEffect(() => {
     if (!isOnline || !backendOk) return;
     idbGetAll().then(async items => {
@@ -431,13 +431,13 @@ export default function App() {
         await idbClear();
         setPendingCount(0);
         setToast(`Synced ${items.length} offline ${items.length === 1 ? "entry" : "entries"}`);
-        // reload
+        
         fetch(`${API_BASE}/api/entries`).then(r => r.json()).then(data => { setEntries(data); lsSet("echo_entries", data); });
       }
     }).catch(() => {});
   }, [isOnline, backendOk]);
 
-  // ── submit entry ──
+  
   const submit = useCallback(async () => {
     if (!body.trim()) return;
     setLoading(true);
@@ -445,7 +445,7 @@ export default function App() {
 
     try {
       if (backendOk) {
-        // ── local mode: Flask handles everything ──
+        
         const resp = await fetch(`${API_BASE}/api/entries`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -462,7 +462,7 @@ export default function App() {
           lsSet("echo_summaries", updatedS);
         }
       } else if (isOnline && apiKey) {
-        // ── web mode: call Gemini directly ──
+        
         const [emotion, mirror] = await Promise.all([
           callGroq(apiKey, tagPrompt(body.trim())).then(r => {
             const e = r.toLowerCase().trim();
@@ -476,7 +476,7 @@ export default function App() {
         lsSet("echo_entries", updated);
         setLastResult({ mirror, emotion, summary: null });
 
-        // periodic summary in web mode
+        
         if (updated.length % SUMMARY_EVERY === 0) {
           const slice = updated.slice(0, SUMMARY_EVERY);
           const text  = await callGroq(apiKey, summaryPrompt(slice));
@@ -487,7 +487,7 @@ export default function App() {
           setLastResult(r => ({ ...r, summary: s }));
         }
       } else {
-        // ── offline: cache to IndexedDB ──
+        
         const entry = { created_at: Date.now() / 1000, body: body.trim(), mirror_mode: mode, tags: [] };
         await idbAdd(entry);
         const localEntry = { ...entry, id: Date.now(), emotion: "neutral", mirror: null };
@@ -520,7 +520,7 @@ export default function App() {
 
   return (
     <>
-      {/* ── Topbar ── */}
+      {}
       <header className="topbar">
         <div className="topbar-brand">
           <h1>🪞 Echo</h1>
@@ -554,7 +554,7 @@ export default function App() {
         </div>
       </header>
 
-      {/* ── Page content ── */}
+      {}
       <div className="page">
 
         {webMode && showKey && (
@@ -567,7 +567,7 @@ export default function App() {
           </div>
         )}
 
-        {/* ── WRITE ── */}
+        {}
         {tab === "write" && (
           <div>
             <h2 className="write-heading">What's on your mind?</h2>

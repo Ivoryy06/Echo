@@ -43,10 +43,10 @@ button { transition: all 0.15s; }
   to   { opacity: 1; transform: translateY(0); }
 }
 
-/* ── Root ── */
+
 #root { min-height: 100vh; display: flex; flex-direction: column; }
 
-/* ── Topbar ── */
+
 .topbar {
   position: sticky;
   top: 0;
@@ -118,7 +118,7 @@ button { transition: all 0.15s; }
   border: 1px solid;
 }
 
-/* ── Page ── */
+
 .page {
   flex: 1;
   max-width: 780px;
@@ -128,7 +128,7 @@ button { transition: all 0.15s; }
   animation: fadeUp 0.2s ease;
 }
 
-/* ── Write ── */
+
 .write-heading {
   font-family: 'Instrument Serif', Georgia, serif;
   font-size: 30px;
@@ -212,7 +212,7 @@ button { transition: all 0.15s; }
 .submit-btn:not(:disabled):hover { opacity: 0.88; box-shadow: 0 0 20px var(--accent-glow); }
 .submit-btn:disabled { opacity: 0.3; cursor: not-allowed; }
 
-/* ── Result ── */
+
 .result-box {
   margin-top: 2rem;
   animation: fadeUp 0.3s ease;
@@ -245,7 +245,7 @@ button { transition: all 0.15s; }
   white-space: pre-wrap;
 }
 
-/* ── Entries ── */
+
 .section-header {
   display: flex;
   align-items: center;
@@ -348,7 +348,7 @@ button { transition: all 0.15s; }
 
 .delete-btn:hover { color: var(--red); opacity: 1; }
 
-/* ── Summary card ── */
+
 .summary-card {
   padding: 22px 26px;
   background: var(--surface);
@@ -375,7 +375,7 @@ button { transition: all 0.15s; }
   white-space: pre-wrap;
 }
 
-/* ── API key panel ── */
+
 .api-key-panel {
   padding: 16px 18px;
   background: var(--surface);
@@ -402,7 +402,7 @@ button { transition: all 0.15s; }
   color: var(--text);
 }
 
-/* ── Toast ── */
+
 .toast {
   position: fixed;
   bottom: 28px;
@@ -420,7 +420,7 @@ button { transition: all 0.15s; }
   white-space: nowrap;
 }
 
-/* ── Empty state ── */
+
 .empty-state {
   text-align: center;
   padding: 4rem 0;
@@ -429,7 +429,7 @@ button { transition: all 0.15s; }
   font-style: italic;
 }
 
-/* ── Responsive ── */
+
 @media (max-width: 600px) {
   .topbar { padding: 0 1rem; }
   .topbar-brand span { display: none; }
@@ -437,7 +437,7 @@ button { transition: all 0.15s; }
   .write-heading { font-size: 24px; }
 }
 
-/* ── Timeline ── */
+
 .timeline-wrap { animation: fadeUp 0.2s ease; }
 .timeline-stat {
   font-size: 11px;
